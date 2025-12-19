@@ -1,0 +1,68 @@
+org: yeferson
+service: retoaws-users-api
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: dev
+  environment:
+    USERS_TABLE: ${self:service}-${self:provider.stage}-users
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.USERS_TABLE}
+
+functions:
+  getUsers:
+    handler: node/getUsers.handler
+    events:
+      - http:
+          path: users
+          method: get
+
+  createUser:
+    handler: node/createUser.handler
+    events:
+      - http:
+          path: users
+          method: post
+
+  updateUser:
+    runtime: python3.11
+    handler: python/update_user.handler
+    events:
+      - http:
+          path: users/{id}
+          method: put
+
+  deleteUser:
+    runtime: python3.11
+    handler: python/delete_user.handler
+    events:
+      - http:
+          path: users/{id}
+          method: delete
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.USERS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
