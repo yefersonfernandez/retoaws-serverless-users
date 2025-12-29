@@ -12,13 +12,21 @@ provider:
     CREATE_USER_QUEUE_URL: !Ref CreateUserQueue
     SEND_EMAIL_TOPIC_ARN: !Ref SendEmailTopic
 
+package:
+  individually: true
+  patterns:
+    - '!**'
+
 functions:
   getUsers:
     handler: node/getUsers.handler
+    package:
+      patterns:
+        - 'node/getUsers.js'
+        - 'package.json'
     iamRoleStatements:
       - Effect: Allow
-        Action:
-          - dynamodb:Scan
+        Action: [dynamodb:Scan]
         Resource: !GetAtt UsersTable.Arn
     events:
       - httpApi:
@@ -27,14 +35,16 @@ functions:
 
   createUser:
     handler: node/createUser.handler
+    package:
+      patterns:
+        - 'node/createUser.js'
+        - 'package.json'
     iamRoleStatements:
       - Effect: Allow
-        Action:
-          - dynamodb:PutItem
+        Action: [dynamodb:PutItem]
         Resource: !GetAtt UsersTable.Arn
       - Effect: Allow
-        Action:
-          - sqs:SendMessage
+        Action: [sqs:SendMessage]
         Resource: !GetAtt CreateUserQueue.Arn
     events:
       - httpApi:
@@ -44,10 +54,12 @@ functions:
   updateUser:
     runtime: python3.11
     handler: python/update_user.handler
+    package:
+      patterns:
+        - 'python/update_user.py'
     iamRoleStatements:
       - Effect: Allow
-        Action:
-          - dynamodb:UpdateItem
+        Action: [dynamodb:UpdateItem]
         Resource: !GetAtt UsersTable.Arn
     events:
       - httpApi:
@@ -57,10 +69,12 @@ functions:
   deleteUser:
     runtime: python3.11
     handler: python/delete_user.handler
+    package:
+      patterns:
+        - 'python/delete_user.py'
     iamRoleStatements:
       - Effect: Allow
-        Action:
-          - dynamodb:DeleteItem
+        Action: [dynamodb:DeleteItem]
         Resource: !GetAtt UsersTable.Arn
     events:
       - httpApi:
@@ -69,15 +83,16 @@ functions:
 
   sendEmail:
     handler: node/sendEmail.handler
+    package:
+      patterns:
+        - 'node/sendEmail.js'
+        - 'package.json'
     iamRoleStatements:
       - Effect: Allow
-        Action:
-          - sqs:ReceiveMessage
-          - sqs:DeleteMessage
+        Action: [sqs:ReceiveMessage, sqs:DeleteMessage]
         Resource: !GetAtt CreateUserQueue.Arn
       - Effect: Allow
-        Action:
-          - sns:Publish
+        Action: [sns:Publish]
         Resource: !Ref SendEmailTopic
     events:
       - sqs:
@@ -100,12 +115,12 @@ resources:
     CreateUserQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: create-user-queue
+        QueueName: ${self:service}-${self:provider.stage}-create-user-queue
 
     SendEmailTopic:
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: send-email-topic
+        TopicName: ${self:service}-${self:provider.stage}-send-email-topic
 
     SendEmailSubscription:
       Type: AWS::SNS::Subscription
